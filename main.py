@@ -115,9 +115,7 @@ async def start_cmd(message: types.Message):
 async def change_button_setting(message: types.Message):
     if message.from_user.id == ADMIN_ID:
         current = get_button_status()
-
-𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫, [03.01.2026 19:00]
-new_status = "off" if current == "on" else "on"
+        new_status = "off" if current == "on" else "on"
         toggle_button(new_status)
         text = "Kanalga yuboriladigan tugma o'chirildi ❌" if new_status == "off" else "Kanalga yuboriladigan tugma yoqildi ✅"
         await message.answer(text, reply_markup=get_admin_menu())
