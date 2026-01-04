@@ -25,7 +25,8 @@ if name == "main":
         with open(".installed", "w") as f: f.write("done")
 
 # 2. ⚙️ SOZLAMALAR
-API_TOKEN = '8421450271:AAEYRTHjB7nNdV1oeTu42xlm7PK3YbQoG78'
+import os
+API_TOKEN = os.environ.get('API_TOKEN')
 CHANNEL_ID = '@ish_reja_uz'
 ADMIN_ID = 1689979186
 
