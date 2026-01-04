@@ -1,4 +1,9 @@
-import os, sys, subprocess, asyncio, sqlite3, logging, shutil, io
+import os
+import sys
+import subprocess
+import asyncio
+import sqlite3
+import io
 from threading import Thread
 from flask import Flask
 from pypdf import PdfReader, PdfWriter
@@ -6,40 +11,27 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-# 1. 🛠 AVTOMATIK O'RNATUVCHI (Xatolarni oldini oladi)
-def install_packages():
-    reqs = ['aiogram', 'flask', 'requests', 'pypdf', 'reportlab']
-    for r in reqs:
-        try:
-            import(r)
-        except ImportError:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", r])
-
-if name == "main":
-    if not os.path.exists(".installed"):
-        install_packages()
-        with open(".installed", "w") as f: f.write("done")
+# 1. 🛡 XAVFSIZ TOKENNI OLISH (Replit ogohlantirmasligi uchun)
+# Bu yerda token yozilmaydi, u Secrets bo'limidan olinadi
+API_TOKEN = os.environ.get('API_TOKEN')
 
 # 2. ⚙️ SOZLAMALAR
-import os
-API_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 CHANNEL_ID = '@ish_reja_uz'
 ADMIN_ID = 1689979186
-
-class AdminStates(StatesGroup):
-    waiting_for_shablon = State()
-    waiting_for_ai_idea = State()
-
-file_queue = []
-post_interval = 0
 current_chorak = "2-chorak"
-file_shablon = "📚 {sinf} {fan} {chorak}\n\n✅ @ish_reja_uz"
+file_queue = []
 
-# 3. 🗄 BAZA VA SERVER
+# 3. 🌐 WEB SERVER (BOT O'CHMASLIGI UCHUN)
+app = Flask('')
+@app.route('/')
+def home(): return "Bot 24/7 faol!"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+# 4. 🗄 BAZA VA BOT OBYEKTLARI
 def init_db():
     conn = sqlite3.connect('users.db')
     conn.cursor().execute('CREATE TABLE IF NOT EXISTS file_links (id INTEGER PRIMARY KEY, title TEXT, link TEXT, chorak TEXT, message_id INTEGER)')
@@ -47,14 +39,10 @@ def init_db():
     conn.close()
 
 init_db()
-app = Flask('')
-@app.route('/')
-def home(): return "Bot 24/7 faol!"
-
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# 4. 🎨 WATERMARK (PDF uchun)
+# 5. 🎨 PDF WATERMARK FUNKSIYASI
 def create_watermark(input_path, output_path):
     packet = io.BytesIO()
     can = canvas.Canvas(packet, pagesize=letter)
@@ -75,9 +63,10 @@ def create_watermark(input_path, output_path):
     for page in existing_pdf.pages:
         page.merge_page(watermark_pdf.pages[0])
         output.add_page(page)
-    with open(output_path, "wb") as f: output.write(f)
+    with open(output_path, "wb") as f:
+        output.write(f)
 
-# 5. ⌨️ MENYULAR
+# 6. ⌨️ ADMIN MENYU
 def get_admin_menu():
     return ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="📝 Shablon"), KeyboardButton(text="🤖 AI Reklama")],
@@ -85,23 +74,19 @@ def get_admin_menu():
         [KeyboardButton(text=f"📌 {current_chorak}"), KeyboardButton(text="🗑 Tozalash")]
     ], resize_keyboard=True)
 
-# 6. 🚀 NAVBAT TIZIMI
+# 7. 🚀 NAVBAT BILAN YUBORISH
 async def process_queue():
     while True:
         if file_queue:
             data = file_queue.pop(0)
             try:
                 sent = await bot.send_document(CHANNEL_ID, data['file'], caption=data['caption'])
-                conn = sqlite3.connect('users.db')
-                conn.cursor().execute('INSERT INTO file_links (title, link, chorak, message_id) VALUES (?, ?, ?, ?)', 
-                                    (data['title'], f"https://t.me/{CHANNEL_ID[1:]}/{sent.message_id}", current_chorak, sent.message_id))
-                conn.commit()
-                conn.close()
-            except Exception as e: print(f"Xato: {e}")
-            if post_interval > 0: await asyncio.sleep(post_interval)
-        await asyncio.sleep(2)
+                print(f"✅ Fayl yuborildi: {data['title']}")
+            except Exception as e:
+                print(f"❌ Xato: {e}")
+        await asyncio.sleep(3)
 
-# 7. 📥 FAYLLARNI QABUL QILISH
+# 8. 📥 FAYLLARNI QAYTA ISHLASH
 @dp.message(F.document)
 async def handle_docs(message: types.Message):
     if message.from_user.id != ADMIN_ID: return
@@ -122,36 +107,24 @@ async def handle_docs(message: types.Message):
         
     file_queue.append({
         'file': types.FSInputFile(output_path, filename=new_name),
-        'caption': file_shablon.format(sinf="--", fan=name, chorak=current_chorak),
+        'caption': f"📚 {name} | {current_chorak}\n\n✅ @ish_reja_uz",
         'title': name
     })
-    await message.answer(f"📥 {new_name} navbatga olindi.")
+    await message.answer(f"📥 {new_name} navbatga qo'shildi.")
 
-# 8. 🎮 ADMIN BUYRUQLARI
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     if message.from_user.id == ADMIN_ID:
-        await message.answer("🛠 Birlashtirilgan tizim tayyor!", reply_markup=get_admin_menu())
+        await message.answer("🚀 Bot ishga tushdi. Token xavfsiz joyda.", reply_markup=get_admin_menu())
 
-@dp.message(F.text == "⚡️ Tezkor")
-async def set_fast(message: types.Message):
-    global post_interval
-    post_interval = 0
-    await message.answer("⚡️ Rejim: Tezkor yuborish")
-
-@dp.message(F.text == "🗑 Tozalash")
-async def clear_db(message: types.Message):
-    conn = sqlite3.connect('users.db')
-    conn.cursor().execute('DELETE FROM file_links')
-    conn.commit()
-    conn.close()
-    await message.answer("🗑 Katalog tozalandi!")
-
-# 9. 🏁 ISHGA TUSHIRISH
-async def main_loop():
-    Thread(target=lambda: app.run(host='0.0.0.0', port=8080)).start()
+# 9. 🏁 ASOSIY ISHGA TUSHIRUVCHI
+async def main():
+    Thread(target=run_flask).start()
     asyncio.create_task(process_queue())
     await dp.start_polling(bot)
 
 if name == 'main':
-    asyncio.run(main_loop())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
