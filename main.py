@@ -26,7 +26,7 @@ if name == "main":
 
 # 2. ⚙️ SOZLAMALAR
 import os
-API_TOKEN = os.environ.get('API_TOKEN')
+API_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 CHANNEL_ID = '@ish_reja_uz'
 ADMIN_ID = 1689979186
 
